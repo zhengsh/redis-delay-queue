@@ -1,4 +1,7 @@
-package cn.edu.cqvie.dto;
+package cn.edu.cqvie.queue;
+
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
@@ -8,7 +11,9 @@ import java.time.LocalDateTime;
  * @author zhengsh
  * @date 2020-03-27
  */
-public class Message {
+@Setter
+@Getter
+public class DelayMessage {
     /**
      * 消息唯一标识
      */
@@ -30,5 +35,4 @@ public class Message {
      * 创建时间
      */
     private LocalDateTime createTime;
-
 }
