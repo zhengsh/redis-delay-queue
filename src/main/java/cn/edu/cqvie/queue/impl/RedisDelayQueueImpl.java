@@ -27,7 +27,7 @@ public class RedisDelayQueueImpl<E extends DelayMessage> extends AbstractRedisDe
 
     @Override
     public void poll() {
-
+        // todo
     }
 
     /**
@@ -64,4 +64,14 @@ public class RedisDelayQueueImpl<E extends DelayMessage> extends AbstractRedisDe
         }
     }
 
+    @SneakyThrows
+    public void pull() {
+        for (; ;) {
+            String s = redisTemplate.opsForList().leftPop(this.channel);
+            if (s != null) {
+                // todo 拿到消息
+            }
+            Thread.sleep(10L);
+        }
+    }
 }
