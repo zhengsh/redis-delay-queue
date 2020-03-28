@@ -1,10 +1,15 @@
 package cn.edu.cqvie.queue.task;
 
+import io.lettuce.core.ScriptOutputType;
+import io.lettuce.core.api.async.RedisAsyncCommands;
+import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +28,7 @@ public class DistributeTask {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
-    @Scheduled(cron = "0/1 * * * * ?") //每10秒执行一次
+    @Scheduled(cron = "0/1 * * * * ?")
     public void scheduledTaskByCorn() {
         try {
             Set<String> members = redisTemplate.opsForSet().members(META_TOPIC_WAIT);
@@ -33,37 +38,44 @@ public class DistributeTask {
                     redisTemplate.opsForSet().remove(META_TOPIC_WAIT, k);
                     continue;
                 }
-                Set tuples = redisTemplate.opsForZSet().rangeByScoreWithScores(k,
-                        0, System.currentTimeMillis());
-                Iterator<ZSetOperations.TypedTuple<Object>> iterator = tuples.iterator();
-                while (iterator.hasNext()) {
-                    ZSetOperations.TypedTuple<Object> typedTuple = iterator.next();
-                    Object v = typedTuple.getValue();
 
-                    String lua = "local message = redis.call('ZRANGEBYSCORE', KEYS[1], '-inf', ARGV[1], 'WITHSCORES', 'LIMIT', 0, 1);"
-                            + "if #message > 0 then"
-                            + "  local v = redis.call('ZREM', KEYS[1], message[1]);"
-                            + "    if #v > 0 then"
-                            + "      local l = redis.call('LPUSH', KEYS[1], message)"
-                            + "      if #l > 0 then"
-                            + "        redis.call('SADD', ARGV[2])"
-                            + "  return {};"
-                            + "else"
-                            + "  return {};"
-                            + "end";
+                String u =
+                        "local val = redis.call('zrangebyscore', KEYS[1], '-inf', ARGV[1])\n" +
+                                "if(next(val) ~= nil) then\n" +
+                                "    redis.call('zremrangebyrank', KEYS[1], 0, #val - 1)\n" +
+                                "    for i = 1, #val, 100 do\n" +
+                                "        redis.call('rpush', KEYS[2], unpack(val, i, math.min(i+99, #val)))\n" +
+                                "    end\n" +
+                                "end\n" +
+                                "return 1";
 
-                    // todo 一下三个操作需要保证一致性
-                    if (redisTemplate.opsForZSet().remove(k, v) > 0) {
-                        String lk = String.format("delay:active:%s", k);
-                        redisTemplate.opsForSet().add(META_TOPIC_ACTIVE, lk);
-                        redisTemplate.opsForList().leftPush(lk, (String) v);
-                        logger.info("延迟队列[2]，消息到期进入执行队列: {}", lk);
+                String lk = k.replace("delay:wait", "delay:active");
+                Object[] keys = new Object[]{serialize(k), serialize(lk)};
+                Object[] values = new Object[]{serialize(String.valueOf(System.currentTimeMillis()))};
+                Long result = redisTemplate.execute((RedisCallback<Long>) connection -> {
+                    Object nativeConnection = connection.getNativeConnection();
+
+                    if (nativeConnection instanceof RedisAsyncCommands) {
+                        RedisAsyncCommands commands = (RedisAsyncCommands) nativeConnection;
+                        return (Long) commands.getStatefulConnection().sync().eval(u, ScriptOutputType.INTEGER, keys, values);
+                    } else if (nativeConnection instanceof RedisAdvancedClusterAsyncCommands) {
+                        RedisAdvancedClusterAsyncCommands commands = (RedisAdvancedClusterAsyncCommands) nativeConnection;
+                        return (Long) commands.getStatefulConnection().sync().eval(u, ScriptOutputType.INTEGER, keys, values);
                     }
-                }
+                    return 0L;
+                });
+                logger.info("延迟队列[2]，消息到期进入执行队列({}): {}", result != null && result > 0, lk);
             }
         } catch (Throwable t) {
             t.printStackTrace();
         }
+    }
+
+    private byte[] serialize(String key) {
+        RedisSerializer<String> stringRedisSerializer =
+                (RedisSerializer<String>) redisTemplate.getKeySerializer();
+        //lettuce连接包下序列化键值，否则无法用默认的ByteArrayCodec解析
+        return stringRedisSerializer.serialize(key);
     }
 
 }
