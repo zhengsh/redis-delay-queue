@@ -12,10 +12,14 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import static cn.edu.cqvie.queue.RedisDelayQueue.META_TOPIC_ACTIVE;
 
 /**
@@ -29,6 +33,7 @@ public class HandleTask {
     private StringRedisTemplate redisTemplate;
     @Autowired
     private ApplicationContext applicationContext;
+    private ExecutorService executors = Executors.newFixedThreadPool(8);
 
     @Scheduled(cron = "0/1 * * * * ?") //每10秒执行一次
     public void scheduledTaskByCorn() {
@@ -43,10 +48,15 @@ public class HandleTask {
                 }
                 String s = redisTemplate.opsForList().leftPop(k);
                 if (s != null && !"".equals(s.trim())) {
-                    logger.info("redis key : {}", k);
                     for (Map.Entry<Object, Method> entry : map.entrySet()) {
                         DelayMessage message = JSON.parseObject(s, DelayMessage.class);
-                        entry.getValue().invoke(entry.getKey(), message);
+                        executors.submit(() -> {
+                            try {
+                                entry.getValue().invoke(entry.getKey(), message);
+                            } catch (Throwable t) {
+                                logger.warn("延迟队列[3]，消息监听器发送异常: ", t);
+                            }
+                        });
                         logger.info("延迟队列[3]，消息到期发送到消息监听器: {}", message);
                         break;
                     }
@@ -61,9 +71,6 @@ public class HandleTask {
         Map<Object, Method> map = new HashMap<>();
         String[] beans = applicationContext.getBeanDefinitionNames();
         for (String beanName : beans) {
-            if ("messageHander".equals(beanName)) {
-                logger.info("debug code");
-            }
             Class<?> clazz = applicationContext.getType(beanName);
             Method[] methods = clazz.getMethods();
             for (Method method : methods) {

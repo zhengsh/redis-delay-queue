@@ -11,7 +11,7 @@ public class MessageHander {
     private Logger logger = LoggerFactory.getLogger(getClass());
 
     @StreamListener
-    public void handler(DelayMessage delayMessage) {
-        logger.info("message hander :{}", delayMessage);
+    public void handler(DelayMessage message) {
+        logger.info("延迟队列[99]，消息处理监听器: {}", message);
     }
 }
