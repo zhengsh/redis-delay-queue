@@ -13,13 +13,18 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import static cn.edu.cqvie.queue.RedisDelayQueue.META_TOPIC;
 
 /**
  * 任务处理器
@@ -38,25 +43,21 @@ public class HandleTask {
     public void scheduledTaskByCorn() {
         scheduledExecutors.scheduleWithFixedDelay(() -> {
             try {
-                String lk = "delay:list:default";
-                String s = redisTemplate.opsForList().leftPop(lk);
-                if (s != null && !"".equals(s.trim())) {
-                    logger.info("redis key : {}", lk);
-                    String[] beans = applicationContext.getBeanDefinitionNames();
-                    for (String beanName : beans) {
-                        if ("messageHander".equals(beanName))  {
-                            logger.info("debug code");
-                        }
-                        Class<?> clazz = applicationContext.getType(beanName);
-                        Method[] methods = clazz.getMethods();
-                        for (Method method : methods) {
-                            boolean present = method.isAnnotationPresent(StreamListener.class);
-                            if (present) {
-                                // 调用方法
-                                DelayMessage message = JSON.parseObject(s, DelayMessage.class);
-                                method.invoke(applicationContext.getBean(beanName), message);
-                                return;
-                            }
+                Set<String> members = redisTemplate.opsForSet().members(META_TOPIC);
+                Map<Object, Method> map = getBean(StreamListener.class);
+                for (String k : members) {
+                    if (!redisTemplate.hasKey(k)) {
+                        // 如果 KEY 不存在元数据中删除
+                        redisTemplate.opsForSet().remove(META_TOPIC, k);
+                        continue;
+                    }
+                    String s = redisTemplate.opsForList().leftPop(k);
+                    if (s != null && !"".equals(s.trim())) {
+                        logger.info("redis key : {}", k);
+                        for (Map.Entry<Object, Method> entry : map.entrySet()) {
+                            DelayMessage message = JSON.parseObject(s, DelayMessage.class);
+                            entry.getValue().invoke(entry.getKey(), message);
+                            break;
                         }
                     }
                 }
@@ -66,18 +67,22 @@ public class HandleTask {
         }, 3, 1, TimeUnit.SECONDS);
     }
 
-//    @Component
-//    public class SpringBeanUtils implements ApplicationContextAware {
-//        private static ApplicationContext applicationContext;
-//
-//        public void setApplicationContext(ApplicationContext arg0)
-//                throws BeansException {
-//            applicationContext = arg0;
-//        }
-//
-//        public static <T> T getBean(String id, Class<T> clasz) {
-//
-//            return applicationContext.getBean(id, clasz);
-//        }
-//    }
+    private Map<Object, Method> getBean(Class<? extends Annotation> annotationClass) {
+        Map<Object, Method> map = new HashMap<>();
+        String[] beans = applicationContext.getBeanDefinitionNames();
+        for (String beanName : beans) {
+            if ("messageHander".equals(beanName)) {
+                logger.info("debug code");
+            }
+            Class<?> clazz = applicationContext.getType(beanName);
+            Method[] methods = clazz.getMethods();
+            for (Method method : methods) {
+                boolean present = method.isAnnotationPresent(annotationClass);
+                if (present) {
+                    map.put(applicationContext.getBean(beanName), method);
+                }
+            }
+        }
+        return map;
+    }
 }

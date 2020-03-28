@@ -7,6 +7,9 @@ package cn.edu.cqvie.queue;
  * @date 2020-03-27
  */
 public interface RedisDelayQueue<E extends DelayMessage> {
+
+    String META_TOPIC = "delay:meta:topic";
+
     /**
      * 拉取消息
      */

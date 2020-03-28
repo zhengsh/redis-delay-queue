@@ -14,6 +14,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static cn.edu.cqvie.queue.RedisDelayQueue.META_TOPIC;
+
 /**
  * 分发任务
  */
@@ -29,17 +31,26 @@ public class DistributeTask {
     public void scheduledTaskByCorn() {
         scheduledExecutors.scheduleWithFixedDelay(() -> {
             try {
-                String zk = "delay:zset:default";
-                Set tuples = redisTemplate.opsForZSet().rangeByScoreWithScores(zk,
-                        0, System.currentTimeMillis());
-                Iterator<ZSetOperations.TypedTuple<Object>> iterator = tuples.iterator();
-                while (iterator.hasNext()) {
-                    ZSetOperations.TypedTuple<Object> typedTuple = iterator.next();
-                    Object v = typedTuple.getValue();
-                    if (redisTemplate.opsForZSet().remove(zk, v) > 0) {
-                        redisTemplate.opsForList().leftPush("delay:list:default", (String) v);
+                Set<String> members = redisTemplate.opsForSet().members(META_TOPIC);
+                for (String k : members) {
+                    if (!redisTemplate.hasKey(k)) {
+                        // 如果 KEY 不存在元数据中删除
+                        redisTemplate.opsForSet().remove(META_TOPIC, k);
+                        continue;
                     }
-                    logger.info("value: {}, score: {}", typedTuple.getValue(), typedTuple.getScore());
+                    Set tuples = redisTemplate.opsForZSet().rangeByScoreWithScores(k,
+                            0, System.currentTimeMillis());
+                    Iterator<ZSetOperations.TypedTuple<Object>> iterator = tuples.iterator();
+                    while (iterator.hasNext()) {
+                        ZSetOperations.TypedTuple<Object> typedTuple = iterator.next();
+                        Object v = typedTuple.getValue();
+                        if (redisTemplate.opsForZSet().remove(k, v) > 0) {
+                            String lk = String.format("delay:active:%s", k);
+                            redisTemplate.opsForSet().add(META_TOPIC, lk);
+                            redisTemplate.opsForList().leftPush(lk, (String) v);
+                        }
+                        logger.info("value: {}, score: {}", typedTuple.getValue(), typedTuple.getScore());
+                    }
                 }
             } catch (Throwable t) {
                 t.printStackTrace();
