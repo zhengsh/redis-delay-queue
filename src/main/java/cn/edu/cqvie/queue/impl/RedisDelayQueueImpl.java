@@ -9,8 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.*;
-
 /**
  * 延迟队列实现
  *
@@ -42,11 +40,10 @@ public class RedisDelayQueueImpl<E extends DelayMessage> extends AbstractRedisDe
             String topic = e.getTopic();
             String zkey = String.format("delay:wait:%s", topic);
             // 存入元数据
-            redisTemplate.opsForSet().add(META_TOPIC, zkey);
+            redisTemplate.opsForSet().add(META_TOPIC_WAIT, zkey);
             // 存消息内容
             redisTemplate.opsForZSet().add(zkey, jsonStr, e.getDelayTime());
-            logger.info("delay-queue-push, topic: {}", e.getTopic());
-            Thread.sleep(1000);
+            logger.info("延迟队列，消息推送成功进入等待队列, topic: {}", e.getTopic());
         } catch (Throwable t) {
             t.printStackTrace();
         }

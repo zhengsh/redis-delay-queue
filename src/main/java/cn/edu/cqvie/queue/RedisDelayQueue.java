@@ -8,7 +8,8 @@ package cn.edu.cqvie.queue;
  */
 public interface RedisDelayQueue<E extends DelayMessage> {
 
-    String META_TOPIC = "delay:meta:topic";
+    String META_TOPIC_WAIT = "delay:meta:topic:wait";
+    String META_TOPIC_ACTIVE = "delay:meta:topic:active";
 
     /**
      * 拉取消息

@@ -7,24 +7,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
-import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-import static cn.edu.cqvie.queue.RedisDelayQueue.META_TOPIC;
+import static cn.edu.cqvie.queue.RedisDelayQueue.META_TOPIC_ACTIVE;
 
 /**
  * 任务处理器
@@ -37,34 +29,32 @@ public class HandleTask {
     private StringRedisTemplate redisTemplate;
     @Autowired
     private ApplicationContext applicationContext;
-    private ScheduledExecutorService scheduledExecutors = Executors.newScheduledThreadPool(4);
 
     @Scheduled(cron = "0/1 * * * * ?") //每10秒执行一次
     public void scheduledTaskByCorn() {
-        scheduledExecutors.scheduleWithFixedDelay(() -> {
-            try {
-                Set<String> members = redisTemplate.opsForSet().members(META_TOPIC);
-                Map<Object, Method> map = getBean(StreamListener.class);
-                for (String k : members) {
-                    if (!redisTemplate.hasKey(k)) {
-                        // 如果 KEY 不存在元数据中删除
-                        redisTemplate.opsForSet().remove(META_TOPIC, k);
-                        continue;
-                    }
-                    String s = redisTemplate.opsForList().leftPop(k);
-                    if (s != null && !"".equals(s.trim())) {
-                        logger.info("redis key : {}", k);
-                        for (Map.Entry<Object, Method> entry : map.entrySet()) {
-                            DelayMessage message = JSON.parseObject(s, DelayMessage.class);
-                            entry.getValue().invoke(entry.getKey(), message);
-                            break;
-                        }
+        try {
+            Set<String> members = redisTemplate.opsForSet().members(META_TOPIC_ACTIVE);
+            Map<Object, Method> map = getBean(StreamListener.class);
+            for (String k : members) {
+                if (!redisTemplate.hasKey(k)) {
+                    // 如果 KEY 不存在元数据中删除
+                    redisTemplate.opsForSet().remove(META_TOPIC_ACTIVE, k);
+                    continue;
+                }
+                String s = redisTemplate.opsForList().leftPop(k);
+                if (s != null && !"".equals(s.trim())) {
+                    logger.info("redis key : {}", k);
+                    for (Map.Entry<Object, Method> entry : map.entrySet()) {
+                        DelayMessage message = JSON.parseObject(s, DelayMessage.class);
+                        entry.getValue().invoke(entry.getKey(), message);
+                        logger.info("延迟队列，消息到期发送到消息监听器: {}", message);
+                        break;
                     }
                 }
-            } catch (Throwable t) {
-                t.printStackTrace();
             }
-        }, 3, 1, TimeUnit.SECONDS);
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
     }
 
     private Map<Object, Method> getBean(Class<? extends Annotation> annotationClass) {
