@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+
 import java.util.concurrent.*;
 
 
@@ -22,11 +23,13 @@ class RedisDelayQueueImplTest {
     @SneakyThrows
     @Test
     void push() {
-        for (int i = 0; i < 10; i++) {
+        for (int i = 100; i < 101; i++) {
+            final int topic = i;
             executors.submit(() -> {
                 DelayMessage message = new DelayMessage();
-                message.setDelayTime(System.currentTimeMillis() + 3000L);
-                logger.info("延迟队列[0]，消息推送开始: {}", message);
+                message.setTopic(String.valueOf(topic));
+                message.setDelayTime(System.currentTimeMillis() + 30000L);
+                logger.info("延迟队列[0]，消息推送开始: {}", message.getTopic());
                 redisDelayQueue.push(message);
             });
             try {

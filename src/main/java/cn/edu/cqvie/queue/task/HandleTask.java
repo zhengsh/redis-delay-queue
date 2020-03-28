@@ -57,7 +57,7 @@ public class HandleTask {
                                 logger.warn("延迟队列[3]，消息监听器发送异常: ", t);
                             }
                         });
-                        logger.info("延迟队列[3]，消息到期发送到消息监听器: {}", message);
+                        logger.info("延迟队列[3]，消息到期发送到消息监听器: {}", message.getTopic());
                         break;
                     }
                 }

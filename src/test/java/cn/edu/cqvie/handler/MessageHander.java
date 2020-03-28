@@ -12,6 +12,6 @@ public class MessageHander {
 
     @StreamListener
     public void handler(DelayMessage message) {
-        logger.info("延迟队列[99]，消息处理监听器: {}", message);
+        logger.info("延迟队列[9]，消息处理监听器, topic: {}", message.getTopic());
     }
 }

@@ -39,6 +39,20 @@ public class DistributeTask {
                 while (iterator.hasNext()) {
                     ZSetOperations.TypedTuple<Object> typedTuple = iterator.next();
                     Object v = typedTuple.getValue();
+
+                    String lua = "local message = redis.call('ZRANGEBYSCORE', KEYS[1], '-inf', ARGV[1], 'WITHSCORES', 'LIMIT', 0, 1);"
+                            + "if #message > 0 then"
+                            + "  local v = redis.call('ZREM', KEYS[1], message[1]);"
+                            + "    if #v > 0 then"
+                            + "      local l = redis.call('LPUSH', KEYS[1], message)"
+                            + "      if #l > 0 then"
+                            + "        redis.call('SADD', ARGV[2])"
+                            + "  return {};"
+                            + "else"
+                            + "  return {};"
+                            + "end";
+
+                    // todo 一下三个操作需要保证一致性
                     if (redisTemplate.opsForZSet().remove(k, v) > 0) {
                         String lk = String.format("delay:active:%s", k);
                         redisTemplate.opsForSet().add(META_TOPIC_ACTIVE, lk);
