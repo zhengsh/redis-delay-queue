@@ -19,5 +19,5 @@ public @interface StreamListener {
      *
      * @return
      */
-    String value();
+    String value() default "delay:list:default";
 }

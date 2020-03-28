@@ -40,7 +40,7 @@ public class RedisDelayQueueImpl<E extends DelayMessage> extends AbstractRedisDe
         try {
             String jsonStr = JSON.toJSONString(e);
             String topic = e.getTopic();
-            String zkey = String.format("delay:queue:%s", topic);
+            String zkey = String.format("delay:zset:%s", topic);
             redisTemplate.opsForZSet().add(zkey, jsonStr, e.getDelayTime());
             logger.info("delay-queue-push, topic: {}", e.getTopic());
             Thread.sleep(1000);
