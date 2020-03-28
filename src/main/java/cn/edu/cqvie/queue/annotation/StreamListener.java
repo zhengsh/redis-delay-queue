@@ -15,7 +15,7 @@ import java.lang.annotation.*;
 public @interface StreamListener {
 
     /**
-     * 监听通道
+     * 监听主题
      *
      * @return
      */

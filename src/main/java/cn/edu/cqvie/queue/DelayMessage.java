@@ -19,20 +19,19 @@ public class DelayMessage {
      */
     private String id;
     /**
-     * 消息渠道 如 订单 支付 代表不同业务类型
-     * 为消费时不同类去处理
+     * 消息主题
      */
-    private String channel;
+    private String topic;
     /**
      * 具体消息 json
      */
     private String body;
     /**
-     * 延时时间 被消费时间 取当前时间戳+延迟时间
+     * 延时时间, 格式为时间戳: 当前时间戳 + 实际延迟毫秒数
      */
     private Long delayTime;
     /**
-     * 创建时间
+     * 消息发送时间
      */
     private LocalDateTime createTime;
 }
