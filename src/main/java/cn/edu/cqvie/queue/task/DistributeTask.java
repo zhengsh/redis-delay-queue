@@ -43,7 +43,7 @@ public class DistributeTask {
                         String lk = String.format("delay:active:%s", k);
                         redisTemplate.opsForSet().add(META_TOPIC_ACTIVE, lk);
                         redisTemplate.opsForList().leftPush(lk, (String) v);
-                        logger.info("延迟队列，消息到期进入执行队列: {}", lk);
+                        logger.info("延迟队列[2]，消息到期进入执行队列: {}", lk);
                     }
                 }
             }

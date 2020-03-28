@@ -47,7 +47,7 @@ public class HandleTask {
                     for (Map.Entry<Object, Method> entry : map.entrySet()) {
                         DelayMessage message = JSON.parseObject(s, DelayMessage.class);
                         entry.getValue().invoke(entry.getKey(), message);
-                        logger.info("延迟队列，消息到期发送到消息监听器: {}", message);
+                        logger.info("延迟队列[3]，消息到期发送到消息监听器: {}", message);
                         break;
                     }
                 }

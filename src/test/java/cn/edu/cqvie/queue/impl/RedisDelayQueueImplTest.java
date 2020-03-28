@@ -8,13 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.redis.core.DefaultTypedTuple;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
-
-import java.util.Iterator;
-import java.util.Set;
 import java.util.concurrent.*;
 
 
@@ -22,13 +15,9 @@ import java.util.concurrent.*;
 class RedisDelayQueueImplTest {
     private Logger logger = LoggerFactory.getLogger(getClass());
     private ExecutorService executors = Executors.newScheduledThreadPool(4);
-    private ScheduledExecutorService scheduledExecutors = Executors.newScheduledThreadPool(4);
 
     @Autowired
     private RedisDelayQueue redisDelayQueue;
-    @Autowired
-    private StringRedisTemplate redisTemplate;
-
 
     @SneakyThrows
     @Test
@@ -37,6 +26,7 @@ class RedisDelayQueueImplTest {
             executors.submit(() -> {
                 DelayMessage message = new DelayMessage();
                 message.setDelayTime(System.currentTimeMillis() + 3000L);
+                logger.info("延迟队列[0]，消息推送开始: {}", message);
                 redisDelayQueue.push(message);
             });
             try {

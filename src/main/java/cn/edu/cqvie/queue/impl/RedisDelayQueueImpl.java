@@ -43,7 +43,7 @@ public class RedisDelayQueueImpl<E extends DelayMessage> extends AbstractRedisDe
             redisTemplate.opsForSet().add(META_TOPIC_WAIT, zkey);
             // 存消息内容
             redisTemplate.opsForZSet().add(zkey, jsonStr, e.getDelayTime());
-            logger.info("延迟队列，消息推送成功进入等待队列, topic: {}", e.getTopic());
+            logger.info("延迟队列[1]，消息推送成功进入等待队列, topic: {}", e.getTopic());
         } catch (Throwable t) {
             t.printStackTrace();
         }
