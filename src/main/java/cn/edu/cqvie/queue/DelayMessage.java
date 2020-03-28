@@ -21,7 +21,7 @@ public class DelayMessage {
     /**
      * 消息主题
      */
-    private String topic;
+    private String topic = "default";
     /**
      * 具体消息 json
      */
@@ -29,7 +29,7 @@ public class DelayMessage {
     /**
      * 延时时间, 格式为时间戳: 当前时间戳 + 实际延迟毫秒数
      */
-    private Long delayTime;
+    private Long delayTime = System.currentTimeMillis() + 30000L;
     /**
      * 消息发送时间
      */
