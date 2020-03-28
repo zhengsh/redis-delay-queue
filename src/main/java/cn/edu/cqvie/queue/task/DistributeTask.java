@@ -42,16 +42,17 @@ public class DistributeTask {
                 String u =
                         "local val = redis.call('zrangebyscore', KEYS[1], '-inf', ARGV[1])\n" +
                                 "if(next(val) ~= nil) then\n" +
+                                "    redis.call('sadd', KEYS[2], ARGV[2])\n" +
                                 "    redis.call('zremrangebyrank', KEYS[1], 0, #val - 1)\n" +
                                 "    for i = 1, #val, 100 do\n" +
-                                "        redis.call('rpush', KEYS[2], unpack(val, i, math.min(i+99, #val)))\n" +
+                                "        redis.call('rpush', KEYS[3], unpack(val, i, math.min(i+99, #val)))\n" +
                                 "    end\n" +
                                 "end\n" +
                                 "return 1";
 
                 String lk = k.replace("delay:wait", "delay:active");
-                Object[] keys = new Object[]{serialize(k), serialize(lk)};
-                Object[] values = new Object[]{serialize(String.valueOf(System.currentTimeMillis()))};
+                Object[] keys = new Object[]{serialize(k), serialize(META_TOPIC_ACTIVE), serialize(lk)};
+                Object[] values = new Object[]{serialize(String.valueOf(System.currentTimeMillis())), serialize(lk)};
                 Long result = redisTemplate.execute((RedisCallback<Long>) connection -> {
                     Object nativeConnection = connection.getNativeConnection();
 
