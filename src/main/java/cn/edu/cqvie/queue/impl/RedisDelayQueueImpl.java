@@ -1,6 +1,7 @@
 package cn.edu.cqvie.queue.impl;
 
 import cn.edu.cqvie.queue.DelayMessage;
+import cn.edu.cqvie.queue.RedisDelayQueue;
 import com.alibaba.fastjson.JSON;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.api.async.RedisAsyncCommands;
@@ -14,8 +15,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
-
 /**
  * 延迟队列实现
  *
@@ -23,7 +22,7 @@ import java.math.BigDecimal;
  * @date 2020-03-27
  */
 @Component
-public class RedisDelayQueueImpl<E extends DelayMessage> extends AbstractRedisDelayQueue<E> {
+public class RedisDelayQueueImpl<E extends DelayMessage> implements RedisDelayQueue<E> {
     private Logger logger = LoggerFactory.getLogger(getClass());
 
     @Autowired

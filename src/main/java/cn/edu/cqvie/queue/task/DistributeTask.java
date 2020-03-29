@@ -8,13 +8,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
-import java.util.Iterator;
 import java.util.Set;
 
 import static cn.edu.cqvie.queue.RedisDelayQueue.*;
@@ -25,10 +22,29 @@ import static cn.edu.cqvie.queue.RedisDelayQueue.*;
 @Component
 public class DistributeTask {
 
+    private static final String LUA_SCRIPT;
     private Logger logger = LoggerFactory.getLogger(getClass());
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    static {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append("local val = redis.call('zrangebyscore', KEYS[1], '-inf', ARGV[1], 'limit', 0, 1)\n");
+        sb.append("if(next(val) ~= nil) then\n");
+        sb.append("    redis.call('sadd', KEYS[2], ARGV[2])\n");
+        sb.append("    redis.call('zremrangebyrank', KEYS[1], 0, #val - 1)\n");
+        sb.append("    for i = 1, #val, 100 do\n");
+        sb.append("        redis.call('rpush', KEYS[3], unpack(val, i, math.min(i+99, #val)))\n");
+        sb.append("    end\n");
+        sb.append("    return 1\n");
+        sb.append("end\n");
+        sb.append("return 0");
+        LUA_SCRIPT = sb.toString();
+    }
+
+    /**
+     * 2秒钟扫描一次执行队列
+     */
     @Scheduled(cron = "0/2 * * * * ?")
     public void scheduledTaskByCorn() {
         try {
@@ -41,29 +57,18 @@ public class DistributeTask {
                     continue;
                 }
 
-                String u =
-                        "local val = redis.call('zrangebyscore', KEYS[1], '-inf', ARGV[1], 'limit', 0, 1)\n" +
-                                "if(next(val) ~= nil) then\n" +
-                                "    redis.call('zremrangebyrank', KEYS[1], 0, #val - 1)\n" +
-                                "    for i = 1, #val, 100 do\n" +
-                                "        redis.call('publish', KEYS[2], unpack(val, i, math.min(i+99, #val)))\n" +
-                                "    end\n" +
-                                "    return 1\n" +
-                                "end\n" +
-                                "return 0";
-
-
-                Object[] keys = new Object[]{serialize(k), serialize(TOPIC_ACTIVE)};
-                Object[] values = new Object[]{serialize(String.valueOf(System.currentTimeMillis()))};
+                String lk = k.replace("delay:wait", "delay:active");
+                Object[] keys = new Object[]{serialize(k), serialize(META_TOPIC_ACTIVE), serialize(lk)};
+                Object[] values = new Object[]{serialize(String.valueOf(System.currentTimeMillis())), serialize(lk)};
                 Long result = redisTemplate.execute((RedisCallback<Long>) connection -> {
                     Object nativeConnection = connection.getNativeConnection();
 
                     if (nativeConnection instanceof RedisAsyncCommands) {
                         RedisAsyncCommands commands = (RedisAsyncCommands) nativeConnection;
-                        return (Long) commands.getStatefulConnection().sync().eval(u, ScriptOutputType.INTEGER, keys, values);
+                        return (Long) commands.getStatefulConnection().sync().eval(LUA_SCRIPT, ScriptOutputType.INTEGER, keys, values);
                     } else if (nativeConnection instanceof RedisAdvancedClusterAsyncCommands) {
                         RedisAdvancedClusterAsyncCommands commands = (RedisAdvancedClusterAsyncCommands) nativeConnection;
-                        return (Long) commands.getStatefulConnection().sync().eval(u, ScriptOutputType.INTEGER, keys, values);
+                        return (Long) commands.getStatefulConnection().sync().eval(LUA_SCRIPT, ScriptOutputType.INTEGER, keys, values);
                     }
                     return 0L;
                 });
