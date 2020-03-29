@@ -7,9 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
-import org.springframework.data.redis.connection.Message;
-import org.springframework.data.redis.connection.MessageListener;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.lang.annotation.Annotation;
@@ -25,8 +22,6 @@ import static cn.edu.cqvie.queue.RedisDelayQueue.TOPIC_ACTIVE;
 public class TaskActiveReceiver {
 
     private Logger logger = LoggerFactory.getLogger(getClass());
-    @Autowired
-    private StringRedisTemplate redisTemplate;
     @Autowired
     private ApplicationContext applicationContext;
     private ExecutorService executors = Executors.newFixedThreadPool(8);

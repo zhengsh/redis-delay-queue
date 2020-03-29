@@ -33,6 +33,7 @@ public class DistributeTask {
     public void scheduledTaskByCorn() {
         try {
             Set<String> members = redisTemplate.opsForSet().members(META_TOPIC_WAIT);
+            assert members != null;
             for (String k : members) {
                 if (!redisTemplate.hasKey(k)) {
                     // 如果 KEY 不存在元数据中删除
@@ -42,16 +43,14 @@ public class DistributeTask {
 
                 String u =
                         "local val = redis.call('zrangebyscore', KEYS[1], '-inf', ARGV[1], 'limit', 0, 1)\n" +
-                        "if(next(val) ~= nil) then\n" +
-                        //"    redis.call('sadd', KEYS[2], ARGV[2])\n" +
-                        // 移除有序集中，指定排名(rank)区间内的所有成员
-                        "    redis.call('zremrangebyrank', KEYS[1], 0, #val - 1)\n" +
-                        "    for i = 1, #val, 100 do\n" +
-                        "        redis.call('publish', KEYS[2], unpack(val, i, math.min(i+99, #val)))\n" +
-                        "    end\n" +
-                        "    return 1\n" +
-                        "end\n" +
-                        "return 0";
+                                "if(next(val) ~= nil) then\n" +
+                                "    redis.call('zremrangebyrank', KEYS[1], 0, #val - 1)\n" +
+                                "    for i = 1, #val, 100 do\n" +
+                                "        redis.call('publish', KEYS[2], unpack(val, i, math.min(i+99, #val)))\n" +
+                                "    end\n" +
+                                "    return 1\n" +
+                                "end\n" +
+                                "return 0";
 
 
                 Object[] keys = new Object[]{serialize(k), serialize(TOPIC_ACTIVE)};
