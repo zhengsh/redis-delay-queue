@@ -10,7 +10,7 @@ public interface RedisDelayQueue<E extends DelayMessage> {
 
     String META_TOPIC_WAIT = "delay:meta:topic:wait";
     String META_TOPIC_ACTIVE = "delay:meta:topic:active";
-
+    String TOPIC_ACTIVE = "delay:active:9999";
     /**
      * 拉取消息
      */

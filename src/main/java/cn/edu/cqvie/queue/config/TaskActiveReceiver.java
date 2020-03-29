@@ -1,4 +1,4 @@
-package cn.edu.cqvie.queue.task;
+package cn.edu.cqvie.queue.config;
 
 import cn.edu.cqvie.queue.DelayMessage;
 import cn.edu.cqvie.queue.annotation.StreamListener;
@@ -7,26 +7,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.data.redis.connection.Message;
+import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static cn.edu.cqvie.queue.RedisDelayQueue.META_TOPIC_ACTIVE;
+import static cn.edu.cqvie.queue.RedisDelayQueue.TOPIC_ACTIVE;
 
-/**
- * 任务处理器
- */
 @Component
-public class HandleTask {
+public class TaskActiveReceiver {
 
     private Logger logger = LoggerFactory.getLogger(getClass());
     @Autowired
@@ -35,33 +31,24 @@ public class HandleTask {
     private ApplicationContext applicationContext;
     private ExecutorService executors = Executors.newFixedThreadPool(8);
 
-    //@Scheduled(cron = "0/1 * * * * ?") //每10秒执行一次
-    public void scheduledTaskByCorn() {
+    public void receiveMessage(String message) {
         try {
-            Set<String> members = redisTemplate.opsForSet().members(META_TOPIC_ACTIVE);
-            Map<Object, Method> map = getBean(StreamListener.class);
-            for (String k : members) {
-                if (!redisTemplate.hasKey(k)) {
-                    // 如果 KEY 不存在元数据中删除
-                    redisTemplate.opsForSet().remove(META_TOPIC_ACTIVE, k);
-                    continue;
-                }
-                String s = redisTemplate.opsForList().leftPop(k);
-                if (s != null && !"".equals(s.trim())) {
-                    for (Map.Entry<Object, Method> entry : map.entrySet()) {
-                        DelayMessage message = JSON.parseObject(s, DelayMessage.class);
-                        executors.submit(() -> {
-                            try {
-                                entry.getValue().invoke(entry.getKey(), message);
-                            } catch (Throwable t) {
-                                logger.warn("延迟队列[3]，消息监听器发送异常: ", t);
-                            }
-                        });
-                        logger.info("延迟队列[3]，消息到期发送到消息监听器: {}", message.getTopic());
-                        break;
-                    }
+            String topic = TOPIC_ACTIVE;
+            if (message != null && !"".equals(message.trim())) {
+                for (Map.Entry<Object, Method> entry : getBean(StreamListener.class).entrySet()) {
+                    DelayMessage m = JSON.parseObject(message, DelayMessage.class);
+                    executors.submit(() -> {
+                        try {
+                            entry.getValue().invoke(entry.getKey(), m);
+                        } catch (Throwable t) {
+                            logger.warn("延迟队列[3]，消息监听器发送异常: ", t);
+                        }
+                    });
+                    logger.info("延迟队列[3]，消息到期发送到消息监听器: {}", topic);
+                    break;
                 }
             }
+
         } catch (Throwable t) {
             t.printStackTrace();
         }
