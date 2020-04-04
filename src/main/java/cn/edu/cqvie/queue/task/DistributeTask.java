@@ -45,7 +45,7 @@ public class DistributeTask {
     /**
      * 2秒钟扫描一次执行队列
      */
-    @Scheduled(cron = "0/2 * * * * ?")
+    @Scheduled(cron = "0/5 * * * * ?")
     public void scheduledTaskByCorn() {
         try {
             Set<String> members = redisTemplate.opsForSet().members(META_TOPIC_WAIT);
