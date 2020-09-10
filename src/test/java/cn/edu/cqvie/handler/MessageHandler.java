@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class MessageHander {
+public class MessageHandler {
     private Logger logger = LoggerFactory.getLogger(getClass());
 
     @StreamListener
