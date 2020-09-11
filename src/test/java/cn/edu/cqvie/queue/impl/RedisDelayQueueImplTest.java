@@ -23,7 +23,7 @@ class RedisDelayQueueImplTest {
     @SneakyThrows
     @Test
     void push() {
-        for (int i = 100; i < Integer.MAX_VALUE; i++) {
+        for (int i = 0; i < 5; i++) {
             final int topic = i;
             executors.submit(() -> {
                 DelayMessage message = new DelayMessage();

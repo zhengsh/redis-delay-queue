@@ -35,7 +35,7 @@ public class HandleTask {
     private ExecutorService executors = Executors.newFixedThreadPool(8);
     private Map<Object, Method> map = new HashMap<>();
 
-    @Scheduled(cron = "0/1 * * * * ?") //每10秒执行一次
+    @Scheduled(cron = "0/3 * * * * ?") //每10秒执行一次
     public void scheduledTaskByCorn() {
         try {
             Set<String> members = redisTemplate.opsForSet().members(META_TOPIC_ACTIVE);
